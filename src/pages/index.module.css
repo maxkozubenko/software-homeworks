@@ -1,0 +1,4 @@
+.main {
+  background: var(--ifm-navbar-link-color) url('/img/image.jpg') center/cover no-repeat;
+  flex-grow: 1;
+}

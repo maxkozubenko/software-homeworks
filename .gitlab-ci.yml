@@ -1,0 +1,54 @@
+workflow:
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      when: always
+    - when: never
+
+image: node:lts
+
+cache:
+  paths:
+    - node_modules/
+
+stages:
+  - install
+  - build
+  - deploy
+  - invalidate_cache
+
+before_script:
+  # Install AWS CLI
+  - apt-get update && apt-get install -y awscli
+  # Configure AWS CLI
+  - aws configure set aws_access_key_id $AWS_ACCESS_KEY_ID
+  - aws configure set aws_secret_access_key $AWS_SECRET_ACCESS_KEY
+  - aws configure set default.region $AWS_DEFAULT_REGION
+  # Login to codeartifact
+  - aws codeartifact login --tool npm --domain ebook --domain-owner 300006373750 --repository ebook-management --region eu-central-1
+
+install_dependencies:
+  stage: install
+  script:
+    - npm install --force
+
+build:
+  stage: build
+  script:
+    - npm run build
+  artifacts:
+    paths:
+      - build/
+
+deploy_to_s3:
+  stage: deploy
+  script:
+    # Install AWS CLI
+    - apt-get update && apt-get install -y awscli
+    # Sync build folder to S3
+    - aws s3 sync build/ s3://$S3_BUCKET/$PROGRAM_PATH/
+
+invalidate_cache:
+  stage: invalidate_cache
+  script:
+    # Invalidate CloudFront cache
+    - aws cloudfront create-invalidation --distribution-id $DISTRIBUTION_ID --paths /$PROGRAM_PATH/*
